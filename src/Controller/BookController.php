@@ -14,7 +14,18 @@ use Symfony\Component\Serializer\SerializerInterface;
 
 class BookController extends AbstractController
 {
-    #[Route('/api/books', name: 'app_book', methods: ['GET'])]
+    #[Route('/api/books', name: 'store_book', methods: ['GET'])]
+    public function store(BookRepository $bookRepository, SerializerInterface $serializer): JsonResponse
+    {
+        return new JsonResponse(
+            $serializer->serialize($bookRepository->findAll(), 'json', ["groups" => "getBooks"]),
+            Response::HTTP_OK,
+            [],
+            true
+        );
+    }
+
+    #[Route('/api/books', name: 'index_book', methods: ['GET'])]
     public function index(BookRepository $bookRepository, SerializerInterface $serializer): JsonResponse
     {
         return new JsonResponse(
@@ -25,7 +36,7 @@ class BookController extends AbstractController
         );
     }
 
-    #[Route('/api/books/{book}', name: 'app_book_details', methods: ['GET'])]
+    #[Route('/api/books/{book}', name: 'show_book', methods: ['GET'])]
     public function show(Book $book, SerializerInterface $serializer): JsonResponse
     {
         return new JsonResponse(
@@ -36,7 +47,7 @@ class BookController extends AbstractController
         );
     }
 
-    #[Route('/api/books/{book}', name: 'app_book_delete', methods: ['DELETE'])]
+    #[Route('/api/books/{book}', name: 'destroy_book', methods: ['DELETE'])]
     public function destroy(Book $book, EntityManagerInterface $entityManager): JsonResponse
     {
         $entityManager->remove($book);

@@ -13,7 +13,7 @@ use Symfony\Component\Serializer\SerializerInterface;
 
 class AuthorController extends AbstractController
 {
-    #[Route('/api/authors', name: 'app_author')]
+    #[Route('/api/authors', name: 'index_author', methods: ['GET'])]
     public function index(AuthorRepository $authorRepository, SerializerInterface $serializer): JsonResponse
     {
         return new JsonResponse(
@@ -24,7 +24,7 @@ class AuthorController extends AbstractController
         );
     }
 
-    #[Route('/api/authors/{author}', name: 'app_author_details')]
+    #[Route('/api/authors/{author}', name: 'show_author', methods: ['GET'])]
     public function show(Author $author, SerializerInterface $serializer): JsonResponse
     {
         return new JsonResponse(
@@ -35,11 +35,12 @@ class AuthorController extends AbstractController
         );
     }
 
-    #[Route('/api/authors/{author}', name: 'app_author_details')]
+    #[Route('/api/authors/{author}', name: 'destroy_author', methods: ['DELETE'])]
     public function destroy(Author $author, EntityManagerInterface $entityManager): JsonResponse
     {
         $entityManager->remove($author);
         $entityManager->flush();
+
         return new JsonResponse(
             null,
             Response::HTTP_NO_CONTENT,
