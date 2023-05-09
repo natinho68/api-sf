@@ -7,19 +7,28 @@ use App\Repository\BookRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\SerializerInterface;
 
 class BookController extends AbstractController
 {
-    #[Route('/api/books', name: 'store_book', methods: ['GET'])]
-    public function store(BookRepository $bookRepository, SerializerInterface $serializer): JsonResponse
+    #[Route('/api/books', name: 'store_book', methods: ['POST'])]
+    public function store(Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, UrlGeneratorInterface $urlGenerator): JsonResponse
     {
+        $book = $serializer->deserialize($request->getContent(), Book::class, 'json');
+        $entityManager->persist($book);
+        $entityManager->flush();
+
+
+        $location = $urlGenerator->generate('show_book', ['book' => $book->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
+
         return new JsonResponse(
-            $serializer->serialize($bookRepository->findAll(), 'json', ["groups" => "getBooks"]),
-            Response::HTTP_OK,
-            [],
+            $serializer->serialize($book, 'json', ["groups" => "getBooks"]),
+            Response::HTTP_CREATED,
+            ["location" => $location],
             true
         );
     }
