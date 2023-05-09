@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Author;
 use App\Repository\AuthorRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -31,6 +32,17 @@ class AuthorController extends AbstractController
             Response::HTTP_OK,
             [],
             true
+        );
+    }
+
+    #[Route('/api/authors/{author}', name: 'app_author_details')]
+    public function destroy(Author $author, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $entityManager->remove($author);
+        $entityManager->flush();
+        return new JsonResponse(
+            null,
+            Response::HTTP_NO_CONTENT,
         );
     }
 }
