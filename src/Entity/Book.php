@@ -5,7 +5,7 @@ namespace App\Entity;
 use App\Repository\BookRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Serializer\Annotation\Groups;
+use JMS\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: BookRepository::class)]
@@ -25,12 +25,11 @@ class Book
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     #[Groups(["getBooks", "getAuthors"])]
-    #[Assert\NotBlank(message: "Cover text is mandatory.")]
     private ?string $coverText = null;
 
     #[ORM\ManyToOne(inversedBy: 'books')]
     #[ORM\JoinColumn(onDelete: 'SET NULL')]
-    #[Groups("getBooks")]
+    #[Groups(["getBooks"])]
     private ?Author $author = null;
 
     public function getId(): ?int

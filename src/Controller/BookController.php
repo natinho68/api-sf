@@ -6,6 +6,8 @@ use App\Entity\Book;
 use App\Repository\AuthorRepository;
 use App\Repository\BookRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use JMS\Serializer\SerializationContext;
+use JMS\Serializer\SerializerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -14,8 +16,6 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
-use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
@@ -43,7 +43,7 @@ class BookController extends AbstractController
         $location = $urlGenerator->generate('show_book', ['book' => $book->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
 
         return new JsonResponse(
-            $serializer->serialize($book, 'json', ['groups' => 'getBooks']),
+            $serializer->serialize($book, 'json', SerializationContext::create()->setGroups(['getBooks'])),
             Response::HTTP_CREATED,
             ['location' => $location],
             true
@@ -60,7 +60,7 @@ class BookController extends AbstractController
 
         $books = $cache->get($cacheKey, function (ItemInterface $item) use ($bookRepository, $page, $limit, $serializer) {
             $item->tag('index_books_cache');
-            return $serializer->serialize($bookRepository->findAllWithPagination($page, $limit), 'json', ["groups" => "getBooks"]);
+            return $serializer->serialize($bookRepository->findAllWithPagination($page, $limit), 'json', SerializationContext::create()->setGroups(['getBooks']));
         });
 
         return new JsonResponse(
@@ -75,7 +75,7 @@ class BookController extends AbstractController
     public function show(Book $book, SerializerInterface $serializer): JsonResponse
     {
         return new JsonResponse(
-            $serializer->serialize($book, 'json', ['groups' => 'getBooks']),
+            $serializer->serialize($book, 'json', SerializationContext::create()->setGroups(['getBooks'])),
             Response::HTTP_OK,
             [],
             true
@@ -86,12 +86,11 @@ class BookController extends AbstractController
     #[IsGranted('ROLE_ADMIN', message: 'Admin role only.')]
     public function update(Book $book, Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, AuthorRepository $authorRepository, ValidatorInterface $validator, TagAwareCacheInterface $cache): JsonResponse
     {
-        $updatedBook = $serializer->deserialize(
-            $request->getContent(),
-            Book::class,
-            'json',
-            [AbstractNormalizer::OBJECT_TO_POPULATE => $book]
-        );
+        $updatedBook = $serializer->deserialize($request->getContent(), Book::class, 'json');
+
+        $book->setTitle($updatedBook->getTitle());
+        $book->setCoverText($updatedBook->getCoverText());
+
 
         $errors = $validator->validate($updatedBook);
 
@@ -101,7 +100,7 @@ class BookController extends AbstractController
 
         $book->setAuthor($authorRepository->find($request->toArray()['authorId'] ?? -1));
 
-        $entityManager->persist($updatedBook);
+        $entityManager->persist($book);
         $entityManager->flush();
 
         $cache->invalidateTags(['index_books_cache']);

@@ -5,6 +5,8 @@ namespace App\Controller;
 use App\Entity\Author;
 use App\Repository\AuthorRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use JMS\Serializer\SerializationContext;
+use JMS\Serializer\SerializerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -13,8 +15,6 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
-use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
@@ -54,9 +54,9 @@ class AuthorController extends AbstractController
         $cacheKey = 'index_authors-' . $page . '-' . $limit;
 
         $authors = $cache->get($cacheKey, function (ItemInterface $item) use ($authorRepository, $page, $limit, $serializer) {
-            $item->tag(['index_authors']);
+            $item->tag(['index_authors_cache']);
 
-            return $serializer->serialize($authorRepository->findAllWithPagination($page, $limit), 'json', ['groups' => 'getAuthors']);
+            return $serializer->serialize($authorRepository->findAllWithPagination($page, $limit), 'json', SerializationContext::create()->setGroups(['getAuthors']));
         });
 
         return new JsonResponse(
@@ -71,7 +71,7 @@ class AuthorController extends AbstractController
     public function show(Author $author, SerializerInterface $serializer): JsonResponse
     {
         return new JsonResponse(
-            $serializer->serialize($author, 'json', ['groups' => 'getAuthors']),
+            $serializer->serialize($author, 'json', SerializationContext::create()->setGroups(['getAuthors'])),
             Response::HTTP_OK,
             [],
             true
@@ -82,7 +82,9 @@ class AuthorController extends AbstractController
     #[IsGranted('ROLE_ADMIN', message: 'Admin role only.')]
     public function update(Author $author, Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, ValidatorInterface $validator, TagAwareCacheInterface $cache)
     {
-        $updatedAuthor = $serializer->deserialize($request->getContent(), Author::class, 'json', [AbstractNormalizer::OBJECT_TO_POPULATE => $author]);
+        $updatedAuthor = $serializer->deserialize($request->getContent(), Author::class, 'json');
+        $author->setLastName($updatedAuthor->getLastName());
+        $author->setFirstName($updatedAuthor->getFirstName());
 
         $errors = $validator->validate($updatedAuthor);
 
@@ -90,7 +92,7 @@ class AuthorController extends AbstractController
             throw new HttpException(JsonResponse::HTTP_BAD_REQUEST, $errors->get(0)->getMessage());
         }
 
-        $entityManager->persist($updatedAuthor);
+        $entityManager->persist($author);
         $entityManager->flush();
         $cache->invalidateTags(['index_authors_cache']);
 
