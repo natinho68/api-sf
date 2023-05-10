@@ -8,6 +8,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: AuthorRepository::class)]
 class Author
@@ -20,6 +21,8 @@ class Author
 
     #[ORM\Column(length: 255)]
     #[Groups(["getBooks", "getAuthors"])]
+    #[Assert\NotBlank(message: "Author firstname is mandatory.")]
+    #[Assert\Length(min: 2, max: 255, minMessage: "Author name must have more than {{ limit }} characters", maxMessage: "Author name must have less than {{ limit }} characters.")]
     private ?string $firstName = null;
 
     #[ORM\Column(type: Types::STRING, nullable: true)]

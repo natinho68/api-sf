@@ -10,19 +10,27 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class BookController extends AbstractController
 {
     #[Route('/api/books', name: 'store_book', methods: ['POST'])]
-    public function store(Request $request, AuthorRepository $authorRepository, SerializerInterface $serializer, EntityManagerInterface $entityManager, UrlGeneratorInterface $urlGenerator): JsonResponse
+    public function store(Request $request, AuthorRepository $authorRepository, SerializerInterface $serializer, EntityManagerInterface $entityManager, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator): JsonResponse
     {
         $book = $serializer->deserialize($request->getContent(), Book::class, 'json');
-        $book->setAuthor($authorRepository->find($request->toArray()['authorId'] ?? -1));
 
+        $errors = $validator->validate($book);
+
+        if ($errors->count() > 0) {
+            throw new HttpException(JsonResponse::HTTP_BAD_REQUEST, $errors->get(0)->getMessage());
+        }
+
+        $book->setAuthor($authorRepository->find($request->toArray()['authorId'] ?? -1));
         $entityManager->persist($book);
         $entityManager->flush();
 
@@ -59,7 +67,7 @@ class BookController extends AbstractController
     }
 
     #[Route('/api/books/{book}', name: 'update_book', methods: ['PUT'])]
-    public function update(Book $book, Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, AuthorRepository $authorRepository): JsonResponse
+    public function update(Book $book, Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, AuthorRepository $authorRepository, ValidatorInterface $validator): JsonResponse
     {
         $updatedBook = $serializer->deserialize(
             $request->getContent(),
@@ -67,6 +75,12 @@ class BookController extends AbstractController
             'json',
             [AbstractNormalizer::OBJECT_TO_POPULATE => $book]
         );
+
+        $errors = $validator->validate($updatedBook);
+
+        if ($errors->count() > 0) {
+            throw new HttpException(JsonResponse::HTTP_BAD_REQUEST, $errors->get(0)->getMessage());
+        }
 
         $book->setAuthor($authorRepository->find($request->toArray()['authorId'] ?? -1));
 
