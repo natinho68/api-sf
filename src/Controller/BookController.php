@@ -17,12 +17,14 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 class BookController extends AbstractController
 {
     #[Route('/api/books', name: 'store_book', methods: ['POST'])]
     #[IsGranted('ROLE_ADMIN', message: 'Admin role only.')]
-    public function store(Request $request, AuthorRepository $authorRepository, SerializerInterface $serializer, EntityManagerInterface $entityManager, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator): JsonResponse
+    public function store(Request $request, AuthorRepository $authorRepository, SerializerInterface $serializer, EntityManagerInterface $entityManager, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator, TagAwareCacheInterface $cache): JsonResponse
     {
         $book = $serializer->deserialize($request->getContent(), Book::class, 'json');
 
@@ -36,6 +38,8 @@ class BookController extends AbstractController
         $entityManager->persist($book);
         $entityManager->flush();
 
+        $cache->invalidateTags(['index_books_cache']);
+
         $location = $urlGenerator->generate('show_book', ['book' => $book->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
 
         return new JsonResponse(
@@ -47,13 +51,20 @@ class BookController extends AbstractController
     }
 
     #[Route('/api/books', name: 'index_book', methods: ['GET'])]
-    public function index(BookRepository $bookRepository, SerializerInterface $serializer, Request $request): JsonResponse
+    public function index(BookRepository $bookRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache): JsonResponse
     {
         $page = $request->get('page', 1);
         $limit = $request->get('limit', 3);
 
+        $cacheKey = 'index_book-' . $page . '-' . $limit;
+
+        $books = $cache->get($cacheKey, function (ItemInterface $item) use ($bookRepository, $page, $limit, $serializer) {
+            $item->tag('index_books_cache');
+            return $serializer->serialize($bookRepository->findAllWithPagination($page, $limit), 'json', ["groups" => "getBooks"]);
+        });
+
         return new JsonResponse(
-            $serializer->serialize($bookRepository->findAllWithPagination($page, $limit), 'json', ['groups' => 'getBooks']),
+            $books,
             Response::HTTP_OK,
             [],
             true
@@ -73,7 +84,7 @@ class BookController extends AbstractController
 
     #[Route('/api/books/{book}', name: 'update_book', methods: ['PUT'])]
     #[IsGranted('ROLE_ADMIN', message: 'Admin role only.')]
-    public function update(Book $book, Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, AuthorRepository $authorRepository, ValidatorInterface $validator): JsonResponse
+    public function update(Book $book, Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, AuthorRepository $authorRepository, ValidatorInterface $validator, TagAwareCacheInterface $cache): JsonResponse
     {
         $updatedBook = $serializer->deserialize(
             $request->getContent(),
@@ -93,15 +104,19 @@ class BookController extends AbstractController
         $entityManager->persist($updatedBook);
         $entityManager->flush();
 
+        $cache->invalidateTags(['index_books_cache']);
+
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
     #[Route('/api/books/{book}', name: 'destroy_book', methods: ['DELETE'])]
     #[IsGranted('ROLE_ADMIN', message: 'Admin role only.')]
-    public function destroy(Book $book, EntityManagerInterface $entityManager): JsonResponse
+    public function destroy(Book $book, EntityManagerInterface $entityManager, TagAwareCacheInterface $cache): JsonResponse
     {
         $entityManager->remove($book);
         $entityManager->flush();
+
+        $cache->invalidateTags(['index_books_cache']);
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

@@ -16,12 +16,14 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 class AuthorController extends AbstractController
 {
     #[Route('/api/authors', name: 'store_author', methods: ['POST'])]
     #[IsGranted('ROLE_ADMIN', message: 'Admin role only.')]
-    public function store(Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator): JsonResponse
+    public function store(Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator, TagAwareCacheInterface $cache): JsonResponse
     {
         $author = $serializer->deserialize($request->getContent(), Author::class, 'json');
 
@@ -33,6 +35,7 @@ class AuthorController extends AbstractController
 
         $entityManager->persist($author);
         $entityManager->flush();
+        $cache->invalidateTags(['index_authors_cache']);
 
         $location = $urlGenerator->generate('show_author', ['author' => $author->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
 
@@ -44,10 +47,20 @@ class AuthorController extends AbstractController
     }
 
     #[Route('/api/authors', name: 'index_author', methods: ['GET'])]
-    public function index(AuthorRepository $authorRepository, SerializerInterface $serializer): JsonResponse
+    public function index(AuthorRepository $authorRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache): JsonResponse
     {
+        $page = $request->get('page', 1);
+        $limit = $request->get('limit', 3);
+        $cacheKey = 'index_authors-' . $page . '-' . $limit;
+
+        $authors = $cache->get($cacheKey, function (ItemInterface $item) use ($authorRepository, $page, $limit, $serializer) {
+            $item->tag(['index_authors']);
+
+            return $serializer->serialize($authorRepository->findAllWithPagination($page, $limit), 'json', ['groups' => 'getAuthors']);
+        });
+
         return new JsonResponse(
-            $serializer->serialize($authorRepository->findAll(), 'json', ['groups' => 'getAuthors']),
+            $authors,
             Response::HTTP_OK,
             [],
             true
@@ -67,7 +80,7 @@ class AuthorController extends AbstractController
 
     #[Route('/api/authors/{author}', name: 'update_author', methods: ['PUT'])]
     #[IsGranted('ROLE_ADMIN', message: 'Admin role only.')]
-    public function update(Author $author, Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, ValidatorInterface $validator)
+    public function update(Author $author, Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, ValidatorInterface $validator, TagAwareCacheInterface $cache)
     {
         $updatedAuthor = $serializer->deserialize($request->getContent(), Author::class, 'json', [AbstractNormalizer::OBJECT_TO_POPULATE => $author]);
 
@@ -79,16 +92,18 @@ class AuthorController extends AbstractController
 
         $entityManager->persist($updatedAuthor);
         $entityManager->flush();
+        $cache->invalidateTags(['index_authors_cache']);
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
     #[Route('/api/authors/{author}', name: 'destroy_author', methods: ['DELETE'])]
     #[IsGranted('ROLE_ADMIN', message: 'Admin role only.')]
-    public function destroy(Author $author, EntityManagerInterface $entityManager): JsonResponse
+    public function destroy(Author $author, EntityManagerInterface $entityManager, TagAwareCacheInterface $cache): JsonResponse
     {
         $entityManager->remove($author);
         $entityManager->flush();
+        $cache->invalidateTags(['index_authors_cache']);
 
         return new JsonResponse(
             null,
