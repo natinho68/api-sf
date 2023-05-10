@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
@@ -19,6 +20,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 class AuthorController extends AbstractController
 {
     #[Route('/api/authors', name: 'store_author', methods: ['POST'])]
+    #[IsGranted('ROLE_ADMIN', message: 'Admin role only.')]
     public function store(Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator): JsonResponse
     {
         $author = $serializer->deserialize($request->getContent(), Author::class, 'json');
@@ -64,6 +66,7 @@ class AuthorController extends AbstractController
     }
 
     #[Route('/api/authors/{author}', name: 'update_author', methods: ['PUT'])]
+    #[IsGranted('ROLE_ADMIN', message: 'Admin role only.')]
     public function update(Author $author, Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, ValidatorInterface $validator)
     {
         $updatedAuthor = $serializer->deserialize($request->getContent(), Author::class, 'json', [AbstractNormalizer::OBJECT_TO_POPULATE => $author]);
@@ -81,6 +84,7 @@ class AuthorController extends AbstractController
     }
 
     #[Route('/api/authors/{author}', name: 'destroy_author', methods: ['DELETE'])]
+    #[IsGranted('ROLE_ADMIN', message: 'Admin role only.')]
     public function destroy(Author $author, EntityManagerInterface $entityManager): JsonResponse
     {
         $entityManager->remove($author);
