@@ -47,10 +47,13 @@ class BookController extends AbstractController
     }
 
     #[Route('/api/books', name: 'index_book', methods: ['GET'])]
-    public function index(BookRepository $bookRepository, SerializerInterface $serializer): JsonResponse
+    public function index(BookRepository $bookRepository, SerializerInterface $serializer, Request $request): JsonResponse
     {
+        $page = $request->get('page', 1);
+        $limit = $request->get('limit', 3);
+
         return new JsonResponse(
-            $serializer->serialize($bookRepository->findAll(), 'json', ['groups' => 'getBooks']),
+            $serializer->serialize($bookRepository->findAllWithPagination($page, $limit), 'json', ['groups' => 'getBooks']),
             Response::HTTP_OK,
             [],
             true
