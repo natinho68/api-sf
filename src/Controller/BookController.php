@@ -9,6 +9,9 @@ use App\Service\VersioningService;
 use Doctrine\ORM\EntityManagerInterface;
 use JMS\Serializer\SerializationContext;
 use JMS\Serializer\SerializerInterface;
+use OpenApi\Annotations as OA;
+use Nelmio\ApiDocBundle\Annotation\Model;
+use Nelmio\ApiDocBundle\Annotation\Security;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -51,6 +54,37 @@ class BookController extends AbstractController
         );
     }
 
+    /**
+     * Cette méthode permet de récupérer l'ensemble des livres.
+     *
+     * @OA\Response(
+     *     response=200,
+     *     description="Retourne la liste des livres",
+     *     @OA\JsonContent(
+     *        type="array",
+     *        @OA\Items(ref=@Model(type=Book::class, groups={"getBooks"}))
+     *     )
+     * )
+     * @OA\Parameter(
+     *     name="page",
+     *     in="query",
+     *     description="La page que l'on veut récupérer",
+     *     @OA\Schema(type="int")
+     * )
+     *
+     * @OA\Parameter(
+     *     name="limit",
+     *     in="query",
+     *     description="Le nombre d'éléments que l'on veut récupérer",
+     *     @OA\Schema(type="int")
+     * )
+     * @OA\Tag(name="Books")
+     *
+     * @param BookRepository $bookRepository
+     * @param SerializerInterface $serializer
+     * @param Request $request
+     * @return JsonResponse
+     */
     #[Route('/api/books', name: 'index_book', methods: ['GET'])]
     public function index(BookRepository $bookRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache): JsonResponse
     {

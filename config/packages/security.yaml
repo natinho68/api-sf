@@ -13,7 +13,7 @@ security:
     dev:
       pattern: ^/(_(profiler|wdt)|css|images|js)/
       security: false
-        #main:
+      #main:
       #lazy: true
       #provider: app_user_provider
 
@@ -40,6 +40,7 @@ security:
   # Note: Only the *first* access control that matches will be used
   access_control:
     - { path: ^/api/login, roles: PUBLIC_ACCESS }
+    - { path: ^/api/doc, roles: PUBLIC_ACCESS }
     - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
 when@test:
